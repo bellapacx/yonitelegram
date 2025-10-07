@@ -104,7 +104,7 @@ const playCommand = (bot: TelegramBot) => {
                 {
                   text: "ጨወታ ጀምር",
                   web_app: {
-                    url: `https://bot-frontend-8lzr.vercel.app/stake/${stake}?user=${telegramId}`,
+                    url: `https://yonifrontend.vercel.app/stake/${stake}?user=${telegramId}`,
                   },
                 },
               ],
