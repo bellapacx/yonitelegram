@@ -54,7 +54,12 @@ export const api = {
   }) {
     try {
       // Step 1: Call the SMS verifier API
-      const verifyRes = await axios.post(verify_BASE, { body: data.sms });
+      const verifyRes = await axios.post(verify_BASE, {
+        body: data.sms,
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
 
       if (verifyRes.data.status !== "success") {
         // Verification failed
