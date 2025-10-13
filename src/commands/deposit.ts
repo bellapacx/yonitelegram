@@ -81,7 +81,7 @@ async function showTelebirrPayment(
   chatId: number,
   session: any
 ) {
-  const account = "0994027828";
+  const account = "0967623621";
 
   function escapeMarkdownV2(text: string) {
     return text.replace(/([_*\[\]()~`>#+\-=|{}.!])/g, "\\$1");
@@ -118,7 +118,7 @@ async function showTelebirrPayment(
 }
 
 async function showCbePayment(bot: TelegramBot, chatId: number, session: any) {
-  const account = "1000415706708";
+  const account = "1000721937667";
 
   function escapeMarkdownV2(text: string) {
     return text.replace(/([_*\[\]()~`>#+\-=|{}.!])/g, "\\$1");
