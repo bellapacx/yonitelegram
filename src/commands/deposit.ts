@@ -117,7 +117,7 @@ async function showTelebirrPayment(
   return bot.sendMessage(chatId, finalMessage, { parse_mode: "MarkdownV2" });
 }
 
-async function showCbePayment(bot: TelegramBot, chatId: number, session: any) {
+async function showCbeePayment(bot: TelegramBot, chatId: number, session: any) {
   const account = "1000721937667";
 
   function escapeMarkdownV2(text: string) {
@@ -154,6 +154,108 @@ async function showCbePayment(bot: TelegramBot, chatId: number, session: any) {
   const finalMessage = `${accountBlock}\n${instructionsBlock}\n${footer}`;
   session.state = "awaiting_sms";
   return bot.sendMessage(chatId, finalMessage, { parse_mode: "MarkdownV2" });
+}
+async function showCbePayment(bot: TelegramBot, chatId: number, session: any) {
+  const account = "1000721937667";
+
+  function escapeMarkdownV2(text: string) {
+    return text.replace(/([_*\[\]()~`>#+\-=|{}.!])/g, "\\$1");
+  }
+
+  const amount = escapeMarkdownV2(String(session.amount));
+
+  // -----------------------------
+  // Step 1: Send the account with a copy button
+  // -----------------------------
+  await bot.sendMessage(chatId, "💳 የኢትዮጵያ ንግድ ባንክ አካውንት ቁጥር:", {
+    reply_markup: {
+      inline_keyboard: [
+        [
+          {
+            text: account,
+            callback_data: "copy_account",
+          },
+        ],
+        [{ text: "⬅ Back", callback_data: "main_menu" }],
+      ],
+    },
+  });
+
+  // -----------------------------
+  // Step 2: Send instructions separately
+  // -----------------------------
+  const instructions = `
+1. ከላይ ባለው አካውንት ቁጥር ${amount}ብር ያስገቡ
+2. የምትልኩት የገንዘብ መጠን ትክክለኛ መሆኑን እርግጠኛ ይሁኑ
+3. ብሩን ስትልኩ የደረሰውን አጭር የጹሁፍ መልክት (SMS) ከባንክ ይቀበሉ
+4. አጭር የጹሁፍ መልክት (SMS) በትክክለኛነት በታሽ ባለው ቦቱ ያስገቡ
+`;
+
+  await bot.sendMessage(
+    chatId,
+    "📜 መመሪያዎች:\n" + escapeMarkdownV2(instructions),
+    {
+      parse_mode: "MarkdownV2",
+    }
+  );
+
+  // -----------------------------
+  // Step 3: Send footer separately
+  // -----------------------------
+  const footer = `
+የሚያጋጥማቹ የክፍያ ችግር ካለ @yoni5357 በዚ ኤጀንቱን ማዋራት ይችላሉ
+እባክዎ ከላይ ያለው ቁጥር ብቻ ያንብቡ እና SMS ላይ ያስገቡ
+`;
+
+  await bot.sendMessage(chatId, escapeMarkdownV2(footer), {
+    parse_mode: "MarkdownV2",
+  });
+
+  session.state = "awaiting_sms";
+}
+
+async function waitForVerification(
+  bot: TelegramBot,
+  chatId: number,
+  text: string,
+  session: any
+) {
+  const maxAttempts = 5; // check 5 times
+  const interval = 5000; // every 5 seconds
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    console.log(`[VERIFY] Attempt ${attempt}/${maxAttempts}`);
+
+    try {
+      const response = await api.verifyDeposit({
+        userId: chatId,
+        sms: text,
+        expectedAmount: session.amount ?? 0,
+        reference: session.reference ?? "",
+      });
+
+      if (response.success) {
+        await bot.sendMessage(
+          chatId,
+          `✅ ክፍያዎ ተረጋግጧል!\nመጠን: ${response.amount}`
+        );
+        session.state = "deposit_verified";
+        return true;
+      }
+    } catch (err) {
+      console.error("[VERIFY ERROR]", err);
+    }
+
+    if (attempt < maxAttempts) {
+      await new Promise((res) => setTimeout(res, interval));
+    }
+  }
+
+  await bot.sendMessage(
+    chatId,
+    "❌ ክፍያ አልተረጋገጠም። እባክዎ ትክክለኛ የግብይት መልክት (SMS) ያስገቡ።"
+  );
+  return false;
 }
 
 // -----------------------------
@@ -256,29 +358,21 @@ export function depositCommand(bot: TelegramBot) {
     if (session.state === "awaiting_sms") {
       console.log("[DEBUG] User pasted SMS:", text);
 
-      try {
-        const response = await api.verifyDeposit({
-          userId: msg.from.id,
-          sms: text,
-          expectedAmount: session.amount ?? 0, // fallback to 0
-          reference: session.reference ?? "", // fallback to empty string
-        });
+      // Send temporary loading message
+      const verifyingMsg = await bot.sendMessage(
+        chatId,
+        "⏳ እባክዎ ይጠብቁ... ክፍያዎ በመረጋገጥ ላይ ነው።"
+      );
 
-        if (response.success) {
-          session.state = "deposit_verified";
-          await bot.sendMessage(
-            chatId,
-            `✅ ክፍያዎ ተረጋግጧል!\nመጠን: ${response.amount}`
-          );
-        } else {
-          await bot.sendMessage(
-            chatId,
-            "❌ ክፍያ አልተረጋገጠም። እባክዎ ትክክለኛውን SMS ያስገቡ።"
-          );
-        }
-      } catch (err) {
-        console.error("[SMS TO API ERROR]", err);
-        await bot.sendMessage(chatId, "❌ ከAPI ጋር ችግር ተከስቷል። እንደገና ይሞክሩ።");
+      const success = await waitForVerification(bot, chatId, text, session);
+
+      if (!success) {
+        await bot.editMessageText("አልተገኘም። እንደገና ይሞክሩ።", {
+          chat_id: chatId,
+          message_id: verifyingMsg.message_id,
+        });
+      } else {
+        await bot.deleteMessage(chatId, verifyingMsg.message_id);
       }
     }
   });
