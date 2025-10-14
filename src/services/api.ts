@@ -54,12 +54,15 @@ export const api = {
   }) {
     try {
       // Step 1: Call the SMS verifier API
-      const verifyRes = await axios.post(verify_BASE, {
-        body: data.sms,
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+      const verifyRes = await axios.post(
+        verify_BASE,
+        { body: data.sms },
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
       if (verifyRes.data.status !== "success") {
         // Verification failed
@@ -68,13 +71,15 @@ export const api = {
           message: verifyRes.data.message || "Verification failed",
         };
       }
-      console.log("shagjdjag");
+
+      console.log("✅ SMS verification passed");
+
       // Step 2: Update balance in your backend
       const updateRes = await axios.post(
         `${API_BASE}/deposit/verify`,
         {
           userId: data.userId,
-          expectedAmount: data.expectedAmount, // must match backend struct
+          expectedAmount: data.expectedAmount,
           reference: data.reference,
         },
         {
@@ -90,6 +95,7 @@ export const api = {
         data: updateRes.data,
       };
     } catch (err: any) {
+      console.error("❌ verifyDeposit error:", err.message);
       return { success: false, message: err.message || "Unknown error" };
     }
   },
