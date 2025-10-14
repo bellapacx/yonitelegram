@@ -6,7 +6,7 @@ const API_BASE =
 const WS_BASE = process.env.BACKEND_WS || "wss://yonibackend.onrender.com/ws";
 const verify_BASE =
   process.env.VERIFY_URL ||
-  "https://smsverifierapi-production.up.railway.app/api/verify-deposit";
+  "https://smsverifierapi.onrender.com/api/verify-deposit";
 export const api = {
   // ----------------------
   // User APIs
